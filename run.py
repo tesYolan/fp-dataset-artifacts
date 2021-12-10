@@ -63,9 +63,6 @@ def main():
         df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
         df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
         df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
-        df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
-        df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
-        df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
 
         dataset = {}
         k = datasets.Dataset.from_pandas(df)
@@ -74,7 +71,7 @@ def main():
         # By default, the "json" dataset loader places all examples in the train split,
         # so if we want to use a jsonl file for evaluation we need to get the "train" split
         # from the loaded dataset
-        eval_split = 'valid'
+        eval_split = 'train'
         if training_args.do_eval:
             df_val = pd.read_csv(args.dataset.replace("train","dev"), delimiter='\t',encoding="utf-8-sig")
             df_val = df_val.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
@@ -97,7 +94,7 @@ def main():
         dataset_id = tuple(args.dataset.split(':')) if args.dataset is not None else \
             default_datasets[args.task]
         # MNLI has two validation splits (one with matched domains and one with mismatched domains). Most datasets just have one "validation" split
-        eval_split = 'validation_matched' if dataset_id == ('glue', 'multi_nli') else 'validation'
+        eval_split = 'validation_matched' if args.dataset in ['glue', 'multi_nli'] else 'validation'
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
     
