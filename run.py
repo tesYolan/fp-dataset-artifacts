@@ -57,18 +57,33 @@ def main():
         dataset_id = None
         # Load from local json/jsonl file
         import pandas as pd
+
+        # here we do a dirty trick to get the devset to get the dev set for early stoppage and later introspection
+
         df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
         df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
         df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
-        print(df.head())
-        k = datasets.Dataset.from_pandas(df)
+        df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
+        df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+        df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
+
         dataset = {}
+        k = datasets.Dataset.from_pandas(df)
         dataset['train'] = k
         # dataset = datasets.load_dataset('csv', data_files=args.dataset, delimiter='\t')
         # By default, the "json" dataset loader places all examples in the train split,
         # so if we want to use a jsonl file for evaluation we need to get the "train" split
         # from the loaded dataset
-        eval_split = 'train'
+        eval_split = 'valid'
+        if training_args.do_eval:
+            df_val = pd.read_csv(args.dataset.replace("train","dev"), delimiter='\t',encoding="utf-8-sig")
+            df_val = df_val.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+            df_val = df_val.replace({"contradiction":2, "entailment":0, "neutral":1})
+            k = datasets.Dataset.from_pandas(df)
+            dataset['valid'] = k
+            eval_split = 'valid'
+
+
     elif args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
         dataset_id = None
         # Load from local json/jsonl file
