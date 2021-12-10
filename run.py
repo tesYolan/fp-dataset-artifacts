@@ -149,6 +149,7 @@ def main():
             default_datasets[args.task]
         # MNLI has two validation splits (one with matched domains and one with mismatched domains). Most datasets just have one "validation" split
         eval_split = 'validation_mismatched' if args.dataset in ['glue', 'multi_nli'] else 'validation'
+        eval_split = 'test_r3' if args.dataset in ['anli'] else 'validation'
 
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
