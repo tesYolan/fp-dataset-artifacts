@@ -1,0 +1,9 @@
+python3 run.py --do_train --max_length 50 --task nli --dataset /home/mylife/class_materials/CNLI-generalization/data/preprocessed/data/snlisub0/train.jsonl --output_dir /mnt/data_raid/data/val2017/torch_models-sub0 --num_train_epochs 20 --per_device_train_batch_size 16
+# echo "Just train with 1667 samples taken from the revised premise"
+python3 run.py --do_train --max_length 50 --task nli --dataset /home/mylife/class_materials/CNLI-generalization/data/preprocessed/data/snlisub1/train.jsonl --output_dir /mnt/data_raid/data/val2017/torch_models-sub1 --num_train_epochs 20 --per_device_train_batch_size 16
+# echo "Just train with 1667 samples taken from the revised hypothesis"
+python3 run.py --do_train --max_length 50 --task nli --dataset /home/mylife/class_materials/CNLI-generalization/data/preprocessed/data/snlisub2/train.jsonl --output_dir /mnt/data_raid/data/val2017/torch_models-sub2 --num_train_epochs 20 --per_device_train_batch_size 16
+# echo "Just train with 1667 samples taken from the all_comb"
+python3 run.py --do_train --max_length 50 --task nli --dataset /home/mylife/class_materials/CNLI-generalization/data/preprocessed/data/snlisub3/train.jsonl --output_dir /mnt/data_raid/data/val2017/torch_models-sub3 --num_train_epochs 20 --per_device_train_batch_size 16
+echo "Just train with 1667 samples taken from the revised hypothesis - revised premise"
+python3 run.py --do_train --max_length 50 --task nli --dataset /home/mylife/class_materials/CNLI-generalization/data/preprocessed/data/snlisub4/train.jsonl --output_dir /mnt/data_raid/data/val2017/torch_models-sub4 --num_train_epochs 20 --per_device_train_batch_size 16

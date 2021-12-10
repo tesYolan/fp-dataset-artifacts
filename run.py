@@ -5,9 +5,16 @@ from helpers import prepare_dataset_nli, prepare_train_dataset_qa, \
     prepare_validation_dataset_qa, QuestionAnsweringTrainer, compute_accuracy
 import os
 import json
-
+# from skift import ColLblBasedFtClassifier
+import fasttext
+import numpy as np
+import sys
+import pandas as pd
 NUM_PREPROCESSING_WORKERS = 2
-
+def print_results(N, p, r):
+    print("N\t" + str(N))
+    print("P@{}\t{:.3f}".format(1, p))
+    print("R@{}\t{:.3f}".format(1, r))
 
 def main():
     argp = HfArgumentParser(TrainingArguments)
@@ -46,6 +53,8 @@ def main():
                       help='Limit the number of examples to train on.')
     argp.add_argument('--max_eval_samples', type=int, default=None,
                       help='Limit the number of examples to evaluate on.')
+    argp.add_argument('--hypoonly', type=str, default='hello.txt')
+    argp.add_argument('--and_if_false_not_true', action='store_true',)
 
     training_args, args = argp.parse_args_into_dataclasses()
 
@@ -56,13 +65,22 @@ def main():
         cnli = True
         dataset_id = None
         # Load from local json/jsonl file
-        import pandas as pd
 
         # here we do a dirty trick to get the devset to get the dev set for early stoppage and later introspection
 
-        df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
-        df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
-        df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
+        if not args.hypoonly:
+            df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
+            df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+            df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
+
+        if args.hypoonly:
+        #     # sk_clf = ColLblBasedFtClassifier(input_col_lbl='hypothesis', epoch=8)
+        #     # sk_clf.fit(df['hypothesis'], df['label'])
+            df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
+            df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+            df = df.replace({"contradiction":"__label__two", "entailment":"__label__zero", "neutral":"__label__one"})
+            df.to_csv(args.hypoonly, columns=['hypothesis', 'label'], index=False, header=False, sep=" ")
+            model = fasttext.train_supervised(args.hypoonly, epoch=100000)
 
         dataset = {}
         k = datasets.Dataset.from_pandas(df)
@@ -76,27 +94,72 @@ def main():
             df_val = pd.read_csv(args.dataset.replace("train","dev"), delimiter='\t',encoding="utf-8-sig")
             df_val = df_val.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
             df_val = df_val.replace({"contradiction":2, "entailment":0, "neutral":1})
+
+            if args.and_if_false_not_true:
+                df_val['hypothesis'] = df_val['hypothesis'].astype(str) + 'y'
+
+
+            if args.hypoonly:
+                df = df.replace({"contradiction":"__label__two", "entailment":"__label__zero", "neutral":"__label__one"})
+
             k = datasets.Dataset.from_pandas(df)
             dataset['valid'] = k
+            if args.hypoonly:
+                df_val.to_csv(args.hypoonly, columns=['hypothesis', 'label'], index=False, header=False, sep=" ")
+                print_results(*model.test(args.hypoonly))
+                sys.exit(0)
+
             eval_split = 'valid'
 
 
     elif args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
         dataset_id = None
-        # Load from local json/jsonl file
-        dataset = datasets.load_dataset('json', data_files=args.dataset)
+
+        
+        df = pd.io.json.read_json(args.dataset, lines=True)
+        df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+        df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
+        dataset = {}
+        k = datasets.Dataset.from_pandas(df)
+        dataset['train'] = k
+        # dataset = datasets.load_dataset('csv', data_files=args.dataset, delimiter='\t')
         # By default, the "json" dataset loader places all examples in the train split,
         # so if we want to use a jsonl file for evaluation we need to get the "train" split
         # from the loaded dataset
         eval_split = 'train'
+        if training_args.do_eval:
+            df_val = pd.read_csv(args.dataset.replace("train","dev"), delimiter='\t',encoding="utf-8-sig")
+            df_val = df_val.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+            df_val = df_val.replace({"contradiction":2, "entailment":0, "neutral":1})
+
+            if args.hypoonly:
+                df = df.replace({"contradiction":"__label__two", "entailment":"__label__zero", "neutral":"__label__one"})
+
+            k = datasets.Dataset.from_pandas(df)
+            dataset['valid'] = k
+            eval_split = 'valid'
+
+        # Load from local json/jsonl file
+        # By default, the "json" dataset loader places all examples in the train split,
+        # so if we want to use a jsonl file for evaluation we need to get the "train" split
+        # from the loaded dataset
     else:
         default_datasets = {'qa': ('squad',), 'nli': ('snli',)}
         dataset_id = tuple(args.dataset.split(':')) if args.dataset is not None else \
             default_datasets[args.task]
         # MNLI has two validation splits (one with matched domains and one with mismatched domains). Most datasets just have one "validation" split
         eval_split = 'validation_mismatched' if args.dataset in ['glue', 'multi_nli'] else 'validation'
+
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
+        from datasets.utils import disable_progress_bar
+        disable_progress_bar()
+        if args.and_if_false_not_true:
+            def add_postfix(example):
+                example['hypothesis'] = example['hypothesis'] + "and if false not true"
+                return example
+            dataset = dataset.map(add_postfix)
+
     
     # NLI models need to have the output label count specified (label 0 is "entailed", 1 is "neutral", and 2 is "contradiction")
     task_kwargs = {'num_labels': 3} if args.task == 'nli' else {}
