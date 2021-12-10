@@ -50,7 +50,26 @@ def main():
     training_args, args = argp.parse_args_into_dataclasses()
 
     # Dataset selection
-    if args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
+    # CNLI - 
+    cnli = False
+    if args.dataset.endswith('.tsv'):
+        cnli = True
+        dataset_id = None
+        # Load from local json/jsonl file
+        import pandas as pd
+        df = pd.read_csv(args.dataset, delimiter='\t',encoding="utf-8-sig")
+        df = df.rename(columns={"sentence1":"premise", "sentence2":"hypothesis", "gold_label":"label"}, errors="raise")
+        df = df.replace({"contradiction":2, "entailment":0, "neutral":1})
+        print(df.head())
+        k = datasets.Dataset.from_pandas(df)
+        dataset = {}
+        dataset['train'] = k
+        # dataset = datasets.load_dataset('csv', data_files=args.dataset, delimiter='\t')
+        # By default, the "json" dataset loader places all examples in the train split,
+        # so if we want to use a jsonl file for evaluation we need to get the "train" split
+        # from the loaded dataset
+        eval_split = 'train'
+    elif args.dataset.endswith('.json') or args.dataset.endswith('.jsonl'):
         dataset_id = None
         # Load from local json/jsonl file
         dataset = datasets.load_dataset('json', data_files=args.dataset)
@@ -63,7 +82,7 @@ def main():
         dataset_id = tuple(args.dataset.split(':')) if args.dataset is not None else \
             default_datasets[args.task]
         # MNLI has two validation splits (one with matched domains and one with mismatched domains). Most datasets just have one "validation" split
-        eval_split = 'validation_matched' if dataset_id == ('glue', 'mnli') else 'validation'
+        eval_split = 'validation_matched' if dataset_id == ('glue', 'multi_nli') else 'validation'
         # Load the raw data
         dataset = datasets.load_dataset(*dataset_id)
     
@@ -76,13 +95,16 @@ def main():
     model_class = model_classes[args.task]
     # Initialize the model and tokenizer from the specified pretrained model/checkpoint
     model = model_class.from_pretrained(args.model, **task_kwargs)
+
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
+
 
     # Select the dataset preprocessing function (these functions are defined in helpers.py)
     if args.task == 'qa':
         prepare_train_dataset = lambda exs: prepare_train_dataset_qa(exs, tokenizer)
         prepare_eval_dataset = lambda exs: prepare_validation_dataset_qa(exs, tokenizer)
     elif args.task == 'nli':
+        print('preparing?')
         prepare_train_dataset = prepare_eval_dataset = \
             lambda exs: prepare_dataset_nli(exs, tokenizer, args.max_length)
         # prepare_eval_dataset = prepare_dataset_nli
