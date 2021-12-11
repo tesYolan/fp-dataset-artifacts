@@ -1,7 +1,10 @@
 # fp-dataset-artifacts
 
 Project by Kaj Bostrom, Jifan Chen, and Greg Durrett. Code by Kaj Bostrom and Jifan Chen.
+## Run examples
+Mentioned in the code can be found without modification(at least almost always) here. 
 
+Additionally, `run.py` has been modififed to explore work on top of https://github.com/acmi-lab/counterfactually-augmented-data and https://github.com/wh629/CNLI-generalization.git. They should either be copied one folder structure up. 
 ## Getting Started
 You'll need Python >= 3.6 to run the code in this repo.
 
